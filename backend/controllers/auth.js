@@ -1,44 +1,28 @@
-
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import PasswordResetOTP from "../models/PasswordResetOTP.js";
-import nodemailer from "nodemailer";
+import sendEmail from "../utils/sendEmail.js"; // path apne folder ke hisaab se check karo
+
+const MAX_OTP_ATTEMPTS = 5;
 
 // ==========================================
-// GENERATE JWT
+// HELPERS
 // ==========================================
 
 const generateToken = (id) => {
-  return jwt.sign(
-    { id },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: "7d",
-    }
-  );
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
 };
 
-
-console.log("========== SMTP DEBUG ==========");
-console.log("SMTP_EMAIL:", process.env.SMTP_EMAIL);
-console.log(
-  "SMTP_PASSWORD EXISTS:",
-  !!process.env.SMTP_PASSWORD
-);
-console.log("================================");
-
-// ==========================================
-// EMAIL TRANSPORTER
-// ==========================================
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_EMAIL,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
+const escapeHtml = (str = "") =>
+  String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 // ==========================================
 // REGISTER
@@ -46,15 +30,9 @@ const transporter = nodemailer.createTransport({
 
 export const register = async (req, res) => {
   try {
-    const {
-      name,
-      email,
-      password,
-      role = "user",
-    } = req.body;
+    const { name, email, password, role = "user" } = req.body;
 
-    const safeRole =
-      role === "company" ? "company" : "user";
+    const safeRole = role === "company" ? "company" : "user";
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -70,13 +48,9 @@ export const register = async (req, res) => {
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
-    });
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(400).json({
@@ -121,10 +95,7 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const {
-      email,
-      password,
-    } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -133,31 +104,16 @@ export const login = async (req, res) => {
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    console.log(
-      "LOGIN EMAIL:",
-      normalizedEmail
-    );
-
-    const user = await User.findOne({
-      email: normalizedEmail,
-    });
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (user?.isBlocked) {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked by the administrator",
+        message: "Your account has been blocked by the administrator",
       });
     }
-
-    console.log(
-      "USER FOUND:",
-      user ? "YES" : "NO"
-    );
 
     if (!user) {
       return res.status(401).json({
@@ -166,13 +122,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const isMatch =
-      await user.comparePassword(password);
-
-    console.log(
-      "PASSWORD MATCH:",
-      isMatch
-    );
+    const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -195,10 +145,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "LOGIN ERROR:",
-      error
-    );
+    console.error("LOGIN ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -211,10 +158,13 @@ export const login = async (req, res) => {
 // FORGOT PASSWORD - SEND OTP
 // ==========================================
 
-export const forgotPassword = async (
-  req,
-  res
-) => {
+export const forgotPassword = async (req, res) => {
+  // Same response hamesha, taaki koi email check na kar sake
+  const genericResponse = {
+    success: true,
+    message: "If this email is registered, an OTP has been sent.",
+  };
+
   try {
     const { email } = req.body;
 
@@ -225,142 +175,68 @@ export const forgotPassword = async (
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const user = await User.findOne({
-      email: normalizedEmail,
-    });
+    const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "No account found with this email",
-      });
+    if (!user || user.isBlocked) {
+      return res.status(200).json(genericResponse);
     }
 
-    if (user.isBlocked) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Your account has been blocked by the administrator",
-      });
-    }
+    // 6 digit OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
 
-    // Generate 6 digit OTP
-    const otp = crypto
-      .randomInt(100000, 1000000)
-      .toString();
+    // OTP hash karke store karo
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
 
-    // Hash OTP before storing
-    const otpHash = crypto
-      .createHash("sha256")
-      .update(otp)
-      .digest("hex");
+    // 10 minute validity
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // OTP valid for 10 minutes
-    const expiresAt = new Date(
-      Date.now() + 10 * 60 * 1000
-    );
+    await PasswordResetOTP.deleteOne({ email: normalizedEmail });
 
-    // Delete old OTP
-    await PasswordResetOTP.deleteOne({
-      email: normalizedEmail,
-    });
-
-    // Save new OTP
     await PasswordResetOTP.create({
       email: normalizedEmail,
       otpHash,
       expiresAt,
       verified: false,
+      attempts: 0,
     });
 
-    // Send email
-    await transporter.sendMail({
-      from: `"TechBoard" <${process.env.SMTP_EMAIL}>`,
-      to: normalizedEmail,
-      subject: "TechBoard - Password Reset OTP",
-      html: `
-        <div style="
-          font-family: Arial, sans-serif;
-          max-width: 600px;
-          margin: auto;
-          padding: 30px;
-          border: 1px solid #ddd;
-          border-radius: 10px;
-        ">
-
-          <h2 style="color:#2563eb;">
-            TechBoard Password Reset
-          </h2>
-
-          <p>
-            Hello ${user.name || "User"},
-          </p>
-
-          <p>
-            We received a request to reset your TechBoard password.
-          </p>
-
-          <p>
-            Your One-Time Password (OTP) is:
-          </p>
-
-          <div style="
-            font-size: 32px;
-            font-weight: bold;
-            letter-spacing: 8px;
-            color: #2563eb;
-            padding: 20px;
-            text-align: center;
-            background: #f3f6ff;
-            border-radius: 8px;
-          ">
-            ${otp}
+    try {
+      await sendEmail({
+        email: normalizedEmail,
+        subject: "TechBoard - Password Reset OTP",
+        message: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color:#2563eb;">TechBoard Password Reset</h2>
+            <p>Hello ${escapeHtml(user.name || "User")},</p>
+            <p>We received a request to reset your TechBoard password.</p>
+            <p>Your One-Time Password (OTP) is:</p>
+            <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2563eb; padding: 20px; text-align: center; background: #f3f6ff; border-radius: 8px;">
+              ${otp}
+            </div>
+            <p>This OTP is valid for <strong>10 minutes</strong>.</p>
+            <p>If you did not request a password reset, you can safely ignore this email.</p>
+            <hr />
+            <p style="color:#777;font-size:13px;">© ${new Date().getFullYear()} TechBoard</p>
           </div>
+        `,
+      });
+    } catch (mailError) {
+      // Email fail hui to OTP record bhi hata do
+      await PasswordResetOTP.deleteOne({ email: normalizedEmail });
+      throw mailError;
+    }
 
-          <p>
-            This OTP is valid for
-            <strong>10 minutes</strong>.
-          </p>
+    console.log(`PASSWORD RESET OTP SENT TO: ${normalizedEmail}`);
 
-          <p>
-            If you did not request a password reset,
-            you can safely ignore this email.
-          </p>
-
-          <hr />
-
-          <p style="color:#777;font-size:13px;">
-            © ${new Date().getFullYear()} TechBoard
-          </p>
-
-        </div>
-      `,
-    });
-
-    console.log(
-      `PASSWORD RESET OTP SENT TO: ${normalizedEmail}`
-    );
-
-    return res.status(200).json({
-      success: true,
-      message:
-        "OTP has been sent to your registered email",
-    });
+    return res.status(200).json(genericResponse);
   } catch (error) {
-    console.error(
-      "FORGOT PASSWORD ERROR:",
-      error
-    );
+    console.error("FORGOT PASSWORD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to send OTP. Please try again.",
+      message: "Unable to send OTP. Please try again.",
     });
   }
 };
@@ -369,15 +245,9 @@ export const forgotPassword = async (
 // VERIFY OTP
 // ==========================================
 
-export const verifyOTP = async (
-  req,
-  res
-) => {
+export const verifyOTP = async (req, res) => {
   try {
-    const {
-      email,
-      otp,
-    } = req.body;
+    const { email, otp } = req.body;
 
     if (!email || !otp) {
       return res.status(400).json({
@@ -386,34 +256,23 @@ export const verifyOTP = async (
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const record =
-      await PasswordResetOTP.findOne({
-        email: normalizedEmail,
-      });
+    const record = await PasswordResetOTP.findOne({ email: normalizedEmail });
 
     if (!record) {
       return res.status(400).json({
         success: false,
-        message:
-          "OTP not found. Please request a new OTP.",
+        message: "OTP not found. Please request a new OTP.",
       });
     }
 
-    if (
-      new Date(record.expiresAt) < new Date()
-    ) {
-      await PasswordResetOTP.deleteOne({
-        email: normalizedEmail,
-      });
+    if (new Date(record.expiresAt) < new Date()) {
+      await PasswordResetOTP.deleteOne({ email: normalizedEmail });
 
       return res.status(400).json({
         success: false,
-        message:
-          "OTP has expired. Please request a new OTP.",
+        message: "OTP has expired. Please request a new OTP.",
       });
     }
 
@@ -430,6 +289,19 @@ export const verifyOTP = async (
       .digest("hex");
 
     if (otpHash !== record.otpHash) {
+      record.attempts = (record.attempts || 0) + 1;
+
+      if (record.attempts >= MAX_OTP_ATTEMPTS) {
+        await PasswordResetOTP.deleteOne({ email: normalizedEmail });
+
+        return res.status(429).json({
+          success: false,
+          message: "Too many wrong attempts. Please request a new OTP.",
+        });
+      }
+
+      await record.save();
+
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
@@ -437,24 +309,18 @@ export const verifyOTP = async (
     }
 
     record.verified = true;
-
     await record.save();
 
     return res.status(200).json({
       success: true,
-      message:
-        "OTP verified successfully",
+      message: "OTP verified successfully",
     });
   } catch (error) {
-    console.error(
-      "VERIFY OTP ERROR:",
-      error
-    );
+    console.error("VERIFY OTP ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to verify OTP",
+      message: "Unable to verify OTP",
     });
   }
 };
@@ -463,53 +329,34 @@ export const verifyOTP = async (
 // RESET PASSWORD
 // ==========================================
 
-export const resetPassword = async (
-  req,
-  res
-) => {
+export const resetPassword = async (req, res) => {
   try {
-    const {
-      email,
-      password,
-      confirmPassword,
-    } = req.body;
+    const { email, password, confirmPassword } = req.body;
 
-    if (
-      !email ||
-      !password ||
-      !confirmPassword
-    ) {
+    if (!email || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please fill all password fields",
+        message: "Please fill all password fields",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must be at least 6 characters",
+        message: "Password must be at least 6 characters",
       });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message:
-          "Passwords do not match",
+        message: "Passwords do not match",
       });
     }
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const record =
-      await PasswordResetOTP.findOne({
-        email: normalizedEmail,
-      });
+    const record = await PasswordResetOTP.findOne({ email: normalizedEmail });
 
     if (!record) {
       return res.status(400).json({
@@ -522,62 +369,45 @@ export const resetPassword = async (
     if (!record.verified) {
       return res.status(403).json({
         success: false,
-        message:
-          "Please verify the OTP first",
+        message: "Please verify the OTP first",
       });
     }
 
-    if (
-      new Date(record.expiresAt) < new Date()
-    ) {
-      await PasswordResetOTP.deleteOne({
-        email: normalizedEmail,
-      });
+    if (new Date(record.expiresAt) < new Date()) {
+      await PasswordResetOTP.deleteOne({ email: normalizedEmail });
 
       return res.status(400).json({
         success: false,
-        message:
-          "OTP session expired. Please request a new OTP.",
+        message: "OTP session expired. Please request a new OTP.",
       });
     }
 
-    const user = await User.findOne({
-      email: normalizedEmail,
-    });
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message:
-          "No account found with this email",
+        message: "No account found with this email",
       });
     }
 
-    // User.js pre-save middleware hashes password
+    // User.js ka pre-save middleware password hash karta hai
     user.password = password;
-
     await user.save();
 
-    // OTP can no longer be reused
-    await PasswordResetOTP.deleteOne({
-      email: normalizedEmail,
-    });
+    // OTP dobara use na ho sake
+    await PasswordResetOTP.deleteOne({ email: normalizedEmail });
 
     return res.status(200).json({
       success: true,
-      message:
-        "Password reset successfully. You can now login.",
+      message: "Password reset successfully. You can now login.",
     });
   } catch (error) {
-    console.error(
-      "RESET PASSWORD ERROR:",
-      error
-    );
+    console.error("RESET PASSWORD ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to reset password",
+      message: "Unable to reset password",
     });
   }
 };
@@ -586,15 +416,9 @@ export const resetPassword = async (
 // GET CURRENT USER
 // ==========================================
 
-export const getMe = async (
-  req,
-  res
-) => {
+export const getMe = async (req, res) => {
   try {
-    const user =
-      await User.findById(
-        req.user.id
-      ).select("-password");
+    const user = await User.findById(req.user.id).select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -608,15 +432,11 @@ export const getMe = async (
       user,
     });
   } catch (error) {
-    console.error(
-      "GET ME ERROR:",
-      error
-    );
+    console.error("GET ME ERROR:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to get user",
+      message: "Unable to get user",
     });
   }
 };
@@ -625,70 +445,51 @@ export const getMe = async (
 // GOOGLE LOGIN
 // ==========================================
 
-export const googleLogin = async (
-  req,
-  res
-) => {
+export const googleLogin = async (req, res) => {
   try {
     const { credential } = req.body;
 
     if (!credential) {
       return res.status(400).json({
         success: false,
-        message:
-          "Google credential is required",
+        message: "Google credential is required",
       });
     }
 
-    const { OAuth2Client } =
-      await import("google-auth-library");
+    const { OAuth2Client } = await import("google-auth-library");
 
-    const client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID
-    );
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-    const ticket =
-      await client.verifyIdToken({
-        idToken: credential,
-        audience:
-          process.env.GOOGLE_CLIENT_ID,
-      });
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-    const payload =
-      ticket.getPayload();
+    const payload = ticket.getPayload();
 
     if (!payload?.email) {
       return res.status(400).json({
         success: false,
-        message:
-          "Google account email is required",
+        message: "Google account email is required",
       });
     }
 
-    const normalizedEmail =
-      payload.email.toLowerCase();
+    const normalizedEmail = payload.email.toLowerCase();
 
-    let user =
-      await User.findOne({
-        email: normalizedEmail,
-      });
+    let user = await User.findOne({ email: normalizedEmail });
 
     if (user?.isBlocked) {
       return res.status(403).json({
         success: false,
-        message:
-          "Your account has been blocked by the administrator",
+        message: "Your account has been blocked by the administrator",
       });
     }
 
     if (!user) {
       user = await User.create({
-        name:
-          payload.name ||
-          "Google User",
+        name: payload.name || "Google User",
         email: normalizedEmail,
-        password:
-          crypto.randomBytes(32).toString("hex"),
+        password: crypto.randomBytes(32).toString("hex"),
         role: "user",
         googleId: payload.sub,
       });
@@ -699,8 +500,7 @@ export const googleLogin = async (
 
     return res.status(200).json({
       success: true,
-      message:
-        "Google login successful",
+      message: "Google login successful",
       token: generateToken(user._id),
       user: {
         id: user._id,
@@ -710,16 +510,11 @@ export const googleLogin = async (
       },
     });
   } catch (error) {
-    console.error(
-      "GOOGLE LOGIN ERROR:",
-      error
-    );
+    console.error("GOOGLE LOGIN ERROR:", error);
 
     return res.status(401).json({
       success: false,
-      message:
-        "Google login failed or credential is invalid",
+      message: "Google login failed or credential is invalid",
     });
   }
 };
-
