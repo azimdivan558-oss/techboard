@@ -1,0 +1,18 @@
+import express from "express";
+import {protect,authorize} from "../middleware/auth.js";
+import {getProfile,updateProfile,getNotifications,markNotificationRead,deleteNotification,clearAllNotifications,scheduleInterview,getCompanyInterviews,getMyInterviews,reportJob,getReports,updateReport,deleteReport} from "../controllers/featureController.js";
+import {upload} from "../middleware/upload.js";
+import {uploadProfileResume,downloadMyResume,removeProfileResume} from "../controllers/resumeController.js";
+const r=express.Router();
+r.get("/profile",protect,getProfile); r.put("/profile",protect,updateProfile);
+r.post("/profile/resume",protect,authorize("user"),upload.single("resume"),uploadProfileResume);
+r.get("/profile/resume",protect,authorize("user"),downloadMyResume);
+r.delete("/profile/resume",protect,authorize("user"),removeProfileResume);
+r.get("/notifications",protect,getNotifications); r.put("/notifications/:id/read",protect,markNotificationRead);
+r.delete("/notifications/:id",protect,deleteNotification); r.delete("/notifications",protect,clearAllNotifications);
+r.get("/interviews",protect,authorize("user"),getMyInterviews); r.get("/company/interviews",protect,authorize("company"),getCompanyInterviews);
+r.post("/applications/:id/interview",protect,authorize("company"),scheduleInterview);
+r.post("/jobs/:id/report",protect,authorize("user"),reportJob);
+r.get("/reports",protect,authorize("admin"),getReports); r.put("/reports/:id",protect,authorize("admin"),updateReport);
+r.delete("/reports/:id",protect,authorize("admin"),deleteReport);
+export default r;

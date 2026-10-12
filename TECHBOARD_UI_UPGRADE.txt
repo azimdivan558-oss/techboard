@@ -1,0 +1,30 @@
+TECHBOARD UI UPGRADE
+=====================
+
+Updated page:
+frontend/src/pages/company/Applications.jsx
+frontend/src/pages/company/Applications.css
+
+Preserved:
+- Existing company applications API
+- Application status update
+- Resume viewing
+- Cover letter display
+- Interview scheduling
+- Online / Offline interview type
+- Meeting link / location
+- Existing routes and backend
+- All other project files
+
+Added:
+- Professional employer applicant workspace
+- Application statistics
+- Search
+- Status filter
+- Refresh control
+- Candidate cards
+- Status badges
+- Resume action card
+- Interview scheduling workspace
+- Responsive desktop/tablet/mobile layout
+- Fully scoped CSS to avoid conflicts with global .application-card and .application-actions rules
