@@ -14,8 +14,10 @@ const FALLBACK_MODELS = [
   "gemini-3.7-flash",
 ];
 
-const REQUEST_TIMEOUT = 20000; // ek request max 20 sec
-const TOTAL_DEADLINE = 60000;  // saare models mila ke max 60 sec
+const REQUEST_TIMEOUT = 40000; // ek request max 40 sec
+// Agar pehla model 35 sec se zyada le chuka (slow timeout), to agla model
+// shuru nahi hoga. Jaldi fail hone wale errors (429/503/404) par chain chalti rahegi.
+const TOTAL_DEADLINE = 35000;
 
 const getModelList = () => {
   const primary = process.env.GEMINI_MODEL;
@@ -183,7 +185,8 @@ export const chatWithAI = async (req, res) => {
         isActive: true,
         approvalStatus: "Approved",
       })
-        .limit(30)
+        .sort({ createdAt: -1 })
+        .limit(10)
         .lean();
     } catch (jobError) {
       console.error("JOB FETCH ERROR:", jobError.message);
@@ -260,7 +263,7 @@ Skills:
 ${jobSkills}
 
 Description:
-${job.description || "Not specified"}
+${job.description ? String(job.description).slice(0, 300) : "Not specified"}
 `;
         })
         .join("\n");
