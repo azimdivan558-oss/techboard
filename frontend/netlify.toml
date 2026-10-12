@@ -5,6 +5,9 @@
 [build.environment]
   NODE_VERSION = "20"
   CI = "false"
+  # REACT_APP_API_URL is the public backend URL; CRA inlines it into the
+  # client bundle by design, so it must not be treated as a secret.
+  SECRETS_SCAN_OMIT_KEYS = "REACT_APP_API_URL"
 
 # React Router: every path must serve index.html
 [[redirects]]
