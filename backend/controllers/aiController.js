@@ -10,13 +10,11 @@ import JobPost from "../models/JobPost.js";
 // Agar .env me GEMINI_MODEL set hai to wo sabse pehle try hoga.
 // Naam wahi rakho jo AI Studio ki rate-limit list me dikh rahe hain.
 const FALLBACK_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-3.7-flash",
   "gemini-3.8-flash",
+  "gemini-3.7-flash",
 ];
 
-const REQUEST_TIMEOUT = 30000; // ek request max 30 sec
+const REQUEST_TIMEOUT = 20000; // ek request max 20 sec
 const TOTAL_DEADLINE = 60000;  // saare models mila ke max 60 sec
 
 const getModelList = () => {
@@ -31,6 +29,9 @@ const isTimeoutError = (error) =>
   error.message?.toLowerCase().includes("timeout");
 
 const isQuotaError = (error) => error.response?.status === 429;
+
+// 404 = ye model ab available nahi / naam galat. Is model ko skip karo.
+const isModelUnavailableError = (error) => error.response?.status === 404;
 
 const isTemporaryError = (error) => {
   const status = error.response?.status;
@@ -106,7 +107,11 @@ export const callGemini = async ({ conversation, systemInstruction }) => {
         message: error.response?.data?.error?.message || error.message,
       });
 
-      if (isQuotaError(error) || isTemporaryError(error)) {
+      if (
+        isQuotaError(error) ||
+        isTemporaryError(error) ||
+        isModelUnavailableError(error)
+      ) {
         console.warn(`${model} unavailable. Trying next model...`);
         continue;
       }
