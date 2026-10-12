@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API, { resumeUrl } from "../../services/api";
-import RecruiterCopilot from "../../components/company/RecruiterCopilot";
+
 
 export default function CompanyDashboard() {
 
@@ -147,7 +147,7 @@ export default function CompanyDashboard() {
           </div>
 
           <div style={{display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap"}}>
-            <RecruiterCopilot compact />
+            
             <Link to="/post-job" className="primary-button">+ Post New Job</Link>
           </div>
 

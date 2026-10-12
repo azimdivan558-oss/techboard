@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import API, { resumeUrl } from "../../services/api";
-import RecruiterCopilot from "../../components/company/RecruiterCopilot";
+
 
 import { createWorker } from "tesseract.js";
 import JSZip from "jszip";
@@ -910,8 +910,6 @@ const matchResponse =
   return (
     <main className="company-applications-page">
       <div className="company-applications-container">
-        <div style={{ marginBottom: "18px" }}><RecruiterCopilot compact /></div>
-
         {/* =====================================================
             HERO
         ===================================================== */}
