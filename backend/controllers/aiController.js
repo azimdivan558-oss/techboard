@@ -6,20 +6,18 @@ import JobPost from "../models/JobPost.js";
    CONFIG
 ========================================================= */
 
-// Pehle .env wala model (GEMINI_MODEL), phir ye fallback models.
+// Models is order me try hote hain. Ek fail ho to turant agla.
+// Agar .env me GEMINI_MODEL set hai to wo sabse pehle try hoga.
 // Naam wahi rakho jo AI Studio ki rate-limit list me dikh rahe hain.
 const FALLBACK_MODELS = [
-  "gemini-3.7-flash",
-  "gemini-3.8-flash",
   "gemini-2.5-flash",
   "gemini-2.5-flash-lite",
+  "gemini-3.7-flash",
+  "gemini-3.8-flash",
 ];
 
-const REQUEST_TIMEOUT = 30000;     // ek request max 30 sec
-const TOTAL_DEADLINE = 60000;      // saare models mila ke max 60 sec
-const TEMP_RETRY_DELAY = 2000;     // 503/500 par 1 retry se pehle wait
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const REQUEST_TIMEOUT = 30000; // ek request max 30 sec
+const TOTAL_DEADLINE = 60000;  // saare models mila ke max 60 sec
 
 const getModelList = () => {
   const primary = process.env.GEMINI_MODEL;
@@ -77,11 +75,12 @@ const requestGemini = async ({ model, conversation, systemInstruction }) => {
 };
 
 /* =========================================================
-   GEMINI CALL WITH MODEL FALLBACK
+   GEMINI CALL WITH MODEL FALLBACK CHAIN
 
-   - 429 (quota): retry NAHI, seedha agla model
-   - 500/502/503/504/timeout/network: sirf 1 retry, phir agla model
-   - 400/401/403 jaise permanent errors: seedha bahar
+   Model 1 fail -> Model 2 -> Model 3 -> Model 4
+   - 429 (quota) / 500 / 502 / 503 / 504 / timeout / network:
+     bina wait kiye seedha agla model
+   - 400 / 401 / 403 jaise permanent errors: seedha bahar
    - Total wait TOTAL_DEADLINE se zyada nahi
 ========================================================= */
 
@@ -101,45 +100,18 @@ export const callGemini = async ({ conversation, systemInstruction }) => {
     } catch (error) {
       lastError = error;
 
-      const status = error.response?.status;
       console.error(`Gemini failed on ${model}:`, {
-        status,
+        status: error.response?.status,
         code: error.response?.data?.error?.code || error.code,
         message: error.response?.data?.error?.message || error.message,
       });
 
-      // Quota khatam: is model par dobara mat try karo
-      if (isQuotaError(error)) {
-        console.warn(`Quota exceeded for ${model}. Trying next model...`);
+      if (isQuotaError(error) || isTemporaryError(error)) {
+        console.warn(`${model} unavailable. Trying next model...`);
         continue;
       }
 
-      // Temporary error: ek hi retry
-      if (isTemporaryError(error)) {
-        if (Date.now() - startedAt > TOTAL_DEADLINE) break;
-
-        let delay = TEMP_RETRY_DELAY;
-        const retryAfter = Number(error.response?.headers?.["retry-after"]);
-        if (!Number.isNaN(retryAfter) && retryAfter > 0) {
-          delay = Math.min(retryAfter * 1000, 10000);
-        }
-
-        console.log(`${model} temporarily unavailable. Retrying once in ${delay / 1000}s...`);
-        await sleep(delay);
-
-        try {
-          return await requestGemini({ model, conversation, systemInstruction });
-        } catch (retryError) {
-          lastError = retryError;
-
-          if (isQuotaError(retryError) || isTemporaryError(retryError)) {
-            continue; // agla model
-          }
-          throw retryError;
-        }
-      }
-
-      // Permanent error (400/401/403 etc.)
+      // Permanent error: agla model try karne ka fayda nahi
       throw error;
     }
   }
