@@ -59,11 +59,11 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/jobs" element={<Jobs />} />
 
             {/* ===== LOGIN ZAROORI (sab roles) ===== */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/jobs" element={<Jobs />} />
+            <Route element={<ProtectedRoute />}>             
               <Route path="/job/:id" element={<JobDetails />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/notifications" element={<Notifications />} />
