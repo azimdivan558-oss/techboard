@@ -87,12 +87,13 @@ function App() {
               <Route path="/company-applications" element={<CompanyApplications />} />
               <Route path="/company-analytics" element={<Analytics />} />
               <Route path="/company-interviews" element={<CompanyInterviews />} />
-              <Route path="/company-reports" element={<ReportCenter />} />
+              
             </Route>
 
             {/* ===== SIRF ADMIN ===== */}
             <Route element={<ProtectedRoute roles={["admin"]} />}>
               <Route path="/admin-dashboard" element={<AdminDashboard />} />
+              <Route path="/company-reports" element={<ReportCenter />} />
               <Route path="/admin-reports" element={<AdminReports />} />
               <Route path="/admin-activity" element={<ActivityLogs />} />
             </Route>
