@@ -63,7 +63,7 @@ function App() {
             <Route path="/jobs" element={<Jobs />} />
 
             {/* ===== LOGIN ZAROORI (sab roles) ===== */}
-            <Route element={<ProtectedRoute />}>             
+            <Route element={<ProtectedRoute />}>
               <Route path="/job/:id" element={<JobDetails />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/notifications" element={<Notifications />} />
@@ -87,7 +87,6 @@ function App() {
               <Route path="/company-applications" element={<CompanyApplications />} />
               <Route path="/company-analytics" element={<Analytics />} />
               <Route path="/company-interviews" element={<CompanyInterviews />} />
-              
             </Route>
 
             {/* ===== SIRF ADMIN ===== */}
