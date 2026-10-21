@@ -7,6 +7,7 @@ import { fetchResumeBuffer, contentTypeFor } from "../utils/cloudinaryResume.js"
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import sendEmail from "../utils/sendEmail.js";
 
 export const companyDashboard=async(req,res)=>{try{const [totalJobs,activeJobs,totalApplications,shortlistedApplications,jobs,recentApplications]=await Promise.all([JobPost.countDocuments({company:req.user._id}),JobPost.countDocuments({company:req.user._id,isActive:true,approvalStatus:"Approved"}),JobApplication.countDocuments({company:req.user._id}),JobApplication.countDocuments({company:req.user._id,status:"Shortlisted"}),JobPost.find({company:req.user._id}).sort({createdAt:-1}),JobApplication.find({company:req.user._id}).populate("applicant","name email resume").populate("job","title").sort({createdAt:-1}).limit(10)]);res.json({success:true,stats:{totalJobs,activeJobs,totalApplications,shortlistedApplications},jobs,recentApplications})}catch(e){res.status(500).json({success:false,message:e.message})}};
 export const getCompanyApplications = async (req, res) => {
@@ -229,6 +230,156 @@ export const analyzeJobMatch = async (req, res) => {
   }
 };
 
-export const updateApplicationStatus=async(req,res)=>{try{const allowed=["Applied","Shortlisted","Interview","Selected","Rejected"];if(!allowed.includes(req.body.status))return res.status(400).json({success:false,message:"Invalid application status"});const application=await JobApplication.findOne({_id:req.params.id,company:req.user._id});if(!application)return res.status(404).json({success:false,message:"Application not found"});application.status=req.body.status;await application.save();await Notification.create({user:application.applicant,title:"Application status updated",message:`Your application status is now ${application.status}`,type:"application",link:"/my-applications"});res.json({success:true,message:"Application status updated",application})}catch(e){res.status(500).json({success:false,message:e.message})}};
+
+
+
+export const updateApplicationStatus = async (req, res) => {
+  try {
+    const allowed = [
+      "Applied",
+      "Shortlisted",
+      "Interview",
+      "Selected",
+      "Rejected",
+    ];
+
+    if (!allowed.includes(req.body.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid application status",
+      });
+    }
+
+    const application = await JobApplication.findOne({
+      _id: req.params.id,
+      company: req.user._id,
+    })
+      .populate("applicant", "name email")
+      .populate("job", "title");
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found",
+      });
+    }
+
+    // Update application status
+    application.status = req.body.status;
+    await application.save();
+
+    // Create in-app notification
+    await Notification.create({
+      user: application.applicant?._id || application.applicant,
+      title: "Application status updated",
+      message: `Your application status is now ${application.status}`,
+      type: "application",
+      link: "/my-applications",
+    });
+
+    let emailSent = false;
+    let emailError = null;
+
+    // Send email to the candidate's registered email
+    try {
+      const candidateEmail = application.applicant?.email;
+
+      if (!candidateEmail) {
+        throw new Error("Candidate registered email was not found");
+      }
+
+      const statusMessages = {
+        Applied: "Your application has been received.",
+        Shortlisted:
+          "Congratulations! You have been shortlisted.",
+        Interview:
+          "Your application has moved to the interview stage.",
+        Selected:
+          "Congratulations! You have been selected for the job.",
+        Rejected:
+          "Your application status has been updated.",
+      };
+
+      // Escape dynamic values before inserting them into HTML
+      const escapeHtml = (value = "") =>
+        String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char]);
+
+      const candidateName = escapeHtml(
+        application.applicant?.name || "Candidate"
+      );
+
+      const jobTitle = escapeHtml(
+        application.job?.title || "Job"
+      );
+
+      const status = escapeHtml(application.status);
+
+      const statusMessage = escapeHtml(
+        statusMessages[application.status] ||
+          `Your application status is now ${application.status}.`
+      );
+
+      await sendEmail({
+        email: candidateEmail,
+        subject: `TechBoard Application Update: ${status}`,
+        message: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;color:#222;">
+            <h2>TechBoard Application Update</h2>
+
+            <p>Hello ${candidateName},</p>
+
+            <p>${statusMessage}</p>
+
+            <p><strong>Job:</strong> ${jobTitle}</p>
+
+            <p><strong>Current Status:</strong> ${status}</p>
+
+            <p>Please log in to your TechBoard account
+            to view your application details.</p>
+
+            <p>Regards,<br/>TechBoard Team</p>
+          </div>
+        `,
+      });
+
+      emailSent = true;
+
+      console.log(
+        `Status email sent successfully to ${candidateEmail}`
+      );
+    } catch (err) {
+      emailError = err.message;
+
+      console.error(
+        "APPLICATION STATUS EMAIL ERROR:",
+        err.message
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: emailSent
+        ? "Application status updated and email sent"
+        : "Application status updated, but email was not sent",
+      emailSent,
+      ...(emailError ? { emailError } : {}),
+      application,
+    });
+  } catch (error) {
+    console.error("STATUS UPDATE ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const updateCompanyProfile=async(req,res)=>{try{const company=await User.findOne({_id:req.user._id,role:"company"});if(!company)return res.status(404).json({success:false,message:"Company not found"});["companyName","companyDescription","website","linkedin","phone","location"].forEach(k=>{if(req.body[k]!==undefined)company[k]=req.body[k]});await company.save();res.json({success:true,company:company.toObject()})}catch(e){res.status(500).json({success:false,message:e.message})}};
 export const analytics=async(req,res)=>{try{const jobs=await JobPost.find({company:req.user._id});const jobIds=jobs.map(j=>j._id);const counts=await JobApplication.aggregate([{$match:{company:req.user._id}},{$group:{_id:"$job",applications:{$sum:1}}}]);const map=new Map(counts.map(x=>[x._id.toString(),x.applications]));const topJobs=jobs.map(j=>({title:j.title,applications:map.get(j._id.toString())||0,views:j.views||0})).sort((a,b)=>b.applications-a.applications).slice(0,10);const totalApplications=counts.reduce((s,x)=>s+x.applications,0);const totalViews=jobs.reduce((s,j)=>s+(j.views||0),0);res.json({success:true,totalJobs:jobs.length,totalApplications,totalViews,averageApplicationsPerPost:jobs.length?Number((totalApplications/jobs.length).toFixed(2)):0,topJobs})}catch(e){res.status(500).json({success:false,message:e.message})}};
