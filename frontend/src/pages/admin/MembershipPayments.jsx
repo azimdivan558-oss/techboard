@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import API from "../../api/axios";
+import API from "../../services/api";
 
 export default function MembershipPayments() {
   const [payments, setPayments] = useState([]);
