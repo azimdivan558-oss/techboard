@@ -38,6 +38,9 @@ const ReportCenter = lazy(() => import("./pages/ReportCenter"));
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminReports = lazy(() => import("./pages/admin/Reports"));
 const ActivityLogs = lazy(() => import("./pages/admin/ActivityLogs"));
+const MembershipPayments = lazy(
+  () => import("./pages/admin/MembershipPayments")
+);
 
 function PageLoader() {
   return (
@@ -95,6 +98,10 @@ function App() {
               <Route path="/company-reports" element={<ReportCenter />} />
               <Route path="/admin-reports" element={<AdminReports />} />
               <Route path="/admin-activity" element={<ActivityLogs />} />
+              <Route
+  path="/admin/membership-payments"
+  element={<MembershipPayments />}
+/>
             </Route>
 
             {/* Galat URL */}

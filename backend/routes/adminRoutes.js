@@ -8,6 +8,7 @@ import {
   updateJobApproval,
   verifyCompany,
   getAdminActivities,
+  getMembershipPayments,
 } from "../controllers/adminController.js";
 import { protect, authorize } from "../middleware/auth.js";
 
@@ -21,5 +22,11 @@ router.get("/jobs/pending", protect, authorize("admin"), getPendingJobs);
 router.put("/jobs/:id/approval", protect, authorize("admin"), updateJobApproval);
 router.put("/companies/:id/verify", protect, authorize("admin"), verifyCompany);
 router.get("/activities", protect, authorize("admin"), getAdminActivities);
+router.get(
+  "/membership-payments",
+  protect,
+  authorize("admin"),
+  getMembershipPayments
+);
 
 export default router;

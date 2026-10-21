@@ -205,6 +205,11 @@ export default function Navbar() {
       label="Notifications"
       badge={unread}
     />
+    <Item
+  to="/admin/membership-payments"
+  icon="bi-credit-card-2-front"
+  label="Membership Payments"
+/>
             </>
           )}
         </nav>

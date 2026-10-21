@@ -3,6 +3,57 @@ import JobPost from "../models/JobPost.js";
 import JobApplication from "../models/JobApplication.js";
 import AdminActivity from "../models/AdminActivity.js";
 import Notification from "../models/Notification.js";
+import Payment from "../models/Payment.js";
+
+export const getMembershipPayments = async (req, res) => {
+  try {
+    const [payments, totalPayments, successfulPayments, pendingPayments, failedPayments, revenueResult] =
+      await Promise.all([
+        Payment.find()
+          .populate("userId", "name email role")
+          .populate("tierId", "name price duration")
+          .sort({ createdAt: -1 })
+          .lean(),
+
+        Payment.countDocuments(),
+
+        Payment.countDocuments({ status: "SUCCESS" }),
+
+        Payment.countDocuments({ status: "PENDING" }),
+
+        Payment.countDocuments({ status: "FAILED" }),
+
+        Payment.aggregate([
+          { $match: { status: "SUCCESS" } },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: "$amount" },
+            },
+          },
+        ]),
+      ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalPayments,
+        successfulPayments,
+        pendingPayments,
+        failedPayments,
+        totalRevenue: revenueResult[0]?.totalRevenue || 0,
+      },
+      payments,
+    });
+  } catch (error) {
+    console.error("ADMIN MEMBERSHIP PAYMENTS ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to load membership payments.",
+    });
+  }
+};
 
 const logAdminActivity = async ({ admin, action, targetType, targetId = null, description }) => {
   try {
