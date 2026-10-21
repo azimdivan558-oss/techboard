@@ -8,8 +8,9 @@ import JobPost from "../models/JobPost.js";
 ========================================================= */
 
 const FALLBACK_MODELS = [
-  "gemini-3.8-flash",
   "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
 ];
 
 const REQUEST_TIMEOUT = 12000;
