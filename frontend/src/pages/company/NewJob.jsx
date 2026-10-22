@@ -210,10 +210,23 @@ const PostJob = () => {
 </div>
               <div className="pj-field">
                 <label className="pj-label" htmlFor="jobType">Employment type <span>*</span></label>
-                <select id="jobType" name="jobType" className={fieldClass("jobType")} value={form.jobType} onChange={handleChange} disabled={loading} aria-invalid={Boolean(errors.jobType)}>
-                  <option value="">Select employment type</option><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option><option value="Remote">Remote</option>
-                </select>
-                {errorMessage("jobType")}
+                <select
+  id="jobType"
+  name="jobType"
+  className={fieldClass("jobType")}
+  value={form.jobType}
+  onChange={handleChange}
+  disabled={loading}
+  aria-invalid={Boolean(errors.jobType)}
+>
+  <option value="">Select employment type</option>
+  <option value="Full Time">Full Time</option>
+  <option value="Part Time">Part Time</option>
+  <option value="Internship">Internship</option>
+  <option value="Contract">Contract</option>
+  <option value="Remote">Remote</option>
+</select>
+{errorMessage("jobType")}
               </div>
               <div className="pj-field">
                 <label className="pj-label" htmlFor="location">Location <span>*</span></label>
