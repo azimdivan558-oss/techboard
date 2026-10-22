@@ -1,66 +1,63 @@
 import nodemailer from "nodemailer";
 
-const sendEmail = async ({ email, subject, message }) => {
-  const user = process.env.SMTP_EMAIL;
-  const pass = process.env.SMTP_PASSWORD;
 
-  if (!user || !pass) {
-    throw new Error(
-      "SMTP_EMAIL or SMTP_PASSWORD is missing"
-    );
+const sendEmail = async ({ email, subject, message }) => {
+  const apiKey = process.env.EMAIL59_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("EMAIL59_API_KEY is missing");
   }
 
   if (!email) {
     throw new Error("Recipient email is required");
   }
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user,
-      pass,
-    },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-  });
-
   try {
-    await transporter.verify();
-    console.log("GMAIL SMTP CONNECTION SUCCESS");
-
-    const info = await transporter.sendMail({
-      from: `"TechBoard" <${user}>`,
-      to: email,
-      subject,
-      html: message,
+    const response = await fetch("https://email59.com/v1/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "techboard",
+        to: email,
+        subject,
+        html: message,
+        category: "transactional",
+      }),
     });
 
-    console.log("GMAIL SMTP EMAIL RESULT:", {
-      messageId: info.messageId,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      recipient: email,
-      subject,
-    });
+    const result = await response.json();
 
-    if (!info.accepted?.length || info.rejected?.length) {
-      throw new Error("SMTP did not accept the recipient");
+    if (!response.ok) {
+      console.error("EMAIL59 API ERROR:", {
+        status: response.status,
+        error: result,
+      });
+
+      throw new Error(
+        result?.detail?.error ||
+        result?.detail ||
+        result?.error ||
+        "Email sending failed"
+      );
     }
 
-    return info;
-  } catch (error) {
-    console.error("GMAIL SMTP ERROR:", {
-      code: error.code,
-      command: error.command,
-      responseCode: error.responseCode,
-      message: error.message,
+    console.log("EMAIL59 EMAIL RESULT:", {
+      id: result.id,
+      status: result.status,
+      recipient: email,
     });
 
+    return result;
+  } catch (error) {
+    console.error("EMAIL59 ERROR:", error.message);
     throw error;
   }
 };
 
 export default sendEmail;
+
+
+
