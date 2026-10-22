@@ -181,10 +181,33 @@ const PostJob = () => {
                 {errorMessage("title")}
               </div>
               <div className="pj-field">
-                <label className="pj-label" htmlFor="category">Category <span>*</span></label>
-                <input id="category" name="category" type="text" className={fieldClass("category")} placeholder="e.g. Engineering, Marketing" value={form.category} onChange={handleChange} disabled={loading} aria-invalid={Boolean(errors.category)} />
-                {errorMessage("category")}
-              </div>
+  <label className="pj-label" htmlFor="category">
+    Category <span>*</span>
+  </label>
+
+  <select
+    id="category"
+    name="category"
+    className={fieldClass("category")}
+    value={form.category}
+    onChange={handleChange}
+    disabled={loading}
+    aria-invalid={Boolean(errors.category)}
+  >
+    <option value="">Select job category</option>
+    <option value="IT & Software">IT & Software</option>
+    <option value="Web Development">Web Development</option>
+    <option value="Data Science">Data Science</option>
+    <option value="Marketing">Marketing</option>
+    <option value="Finance">Finance</option>
+    <option value="Human Resources">Human Resources</option>
+    <option value="Sales">Sales</option>
+    <option value="Design">Design</option>
+    <option value="Other">Other</option>
+  </select>
+
+  {errorMessage("category")}
+</div>
               <div className="pj-field">
                 <label className="pj-label" htmlFor="jobType">Employment type <span>*</span></label>
                 <select id="jobType" name="jobType" className={fieldClass("jobType")} value={form.jobType} onChange={handleChange} disabled={loading} aria-invalid={Boolean(errors.jobType)}>
