@@ -13,6 +13,21 @@ import axios from "axios";
  *   SMTP_EMAIL / SMTP_PASSWORD        (local; EMAIL_USER / EMAIL_PASSWORD also accepted)
  */
 const sendEmail = async ({ email, subject, message }) => {
+
+  
+  console.log("========== EMAIL CONFIG ==========");
+  console.log("RENDER:", Boolean(process.env.RENDER));
+  console.log(
+    "BREVO_API_KEY configured:",
+    Boolean(process.env.BREVO_API_KEY)
+  );
+  console.log("MAIL_FROM configured:", Boolean(process.env.MAIL_FROM));
+  console.log(
+    "SMTP_EMAIL configured:",
+    Boolean(process.env.SMTP_EMAIL || process.env.EMAIL_USER)
+  );
+  console.log("==================================");
+
   const senderEmail =
     process.env.MAIL_FROM ||
     process.env.SMTP_EMAIL ||
