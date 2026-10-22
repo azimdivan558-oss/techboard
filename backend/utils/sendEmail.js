@@ -1,4 +1,3 @@
-
 import nodemailer from "nodemailer";
 import axios from "axios";
 
@@ -21,7 +20,7 @@ const sendEmail = async ({ email, subject, message }) => {
     process.env.SMTP_EMAIL ||
     process.env.EMAIL_USER;
 
-  // Brevo HTTPS API - for Render deployment
+  // Brevo API for deployed applications
   if (process.env.BREVO_API_KEY) {
     if (!senderEmail) {
       throw new Error(
@@ -30,7 +29,6 @@ const sendEmail = async ({ email, subject, message }) => {
     }
 
     try {
-      // FIX: Capture the API response in a variable
       const response = await axios.post(
         "https://api.brevo.com/v3/smtp/email",
         {
@@ -52,11 +50,16 @@ const sendEmail = async ({ email, subject, message }) => {
         }
       );
 
+      const messageId = response.data?.messageId;
+
       console.log("BREVO ACCEPTED EMAIL:", {
-        messageId: response.data?.messageId,
+        messageId,
+        recipient: email,
+        sender: senderEmail,
         subject,
       });
 
+      // Return the real Brevo response to the controller.
       return response.data;
     } catch (err) {
       const detail =
@@ -67,20 +70,22 @@ const sendEmail = async ({ email, subject, message }) => {
       console.error("BREVO API ERROR:", {
         status: err.response?.status,
         detail,
+        recipient: email,
+        subject,
       });
 
       throw new Error(`Brevo send failed: ${detail}`);
     }
   }
 
-  // Render: do not fall back to SMTP
+  // Do not silently fall back to SMTP on Render.
   if (process.env.RENDER) {
     throw new Error(
       "BREVO_API_KEY is not set on Render; SMTP is unavailable"
     );
   }
 
-  // Gmail SMTP - for local development
+  // Gmail SMTP for local development only
   const user = process.env.SMTP_EMAIL || process.env.EMAIL_USER;
   const pass =
     process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD;
@@ -109,16 +114,13 @@ const sendEmail = async ({ email, subject, message }) => {
     html: message,
   });
 
-  console.log(
-  "BREVO API RESPONSE:",
-  JSON.stringify(response.data)
-);
-
-console.log("BREVO REQUEST DETAILS:", {
-  messageId: response.data?.messageId,
-  recipient: email,
-  subject,
-});
+  console.log("SMTP EMAIL SENT:", {
+    messageId: info.messageId,
+    recipient: email,
+    subject,
+    accepted: info.accepted,
+    rejected: info.rejected,
+  });
 
   return info;
 };
