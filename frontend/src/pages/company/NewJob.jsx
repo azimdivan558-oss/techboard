@@ -21,18 +21,16 @@ const PostJob = () => {
     isFeatured: false,
   });
 
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Get today's date in YYYY-MM-DD format
-  const now = new Date();
-
+  const today = new Date();
   const minDeadline = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
   ].join("-");
 
-  // Handle form fields
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -40,101 +38,95 @@ const PostJob = () => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+      submit: "",
+    }));
   };
 
-  // Validate and submit job
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (loading) return;
 
-    // Job title validation
+    const newErrors = {};
+
+    // Title
     if (!form.title.trim()) {
-      alert("Please enter job title.");
-      return;
+      newErrors.title = "Job title is required.";
+    } else if (form.title.trim().length < 3) {
+      newErrors.title = "Job title must be at least 3 characters.";
+    } else if (form.title.trim().length > 100) {
+      newErrors.title = "Job title cannot exceed 100 characters.";
     }
 
-    if (form.title.trim().length < 3) {
-      alert("Job title must contain at least 3 characters.");
-      return;
-    }
-
-    if (form.title.trim().length > 100) {
-      alert("Job title cannot exceed 100 characters.");
-      return;
-    }
-
-    // Job description validation
+    // Description
     if (!form.description.trim()) {
-      alert("Please enter job description.");
-      return;
+      newErrors.description = "Job description is required.";
+    } else if (form.description.trim().length < 20) {
+      newErrors.description =
+        "Description must be at least 20 characters.";
     }
 
-    if (form.description.trim().length < 20) {
-      alert("Job description must contain at least 20 characters.");
-      return;
-    }
-
-    // Category validation
+    // Category
     if (!form.category.trim()) {
-      alert("Please enter job category.");
-      return;
+      newErrors.category = "Category is required.";
     }
 
-    // Location validation
+    // Location
     if (!form.location.trim()) {
-      alert("Please enter job location.");
-      return;
+      newErrors.location = "Location is required.";
     }
 
-    // Job type validation
+    // Job type
     if (!form.jobType) {
-      alert("Please select job type.");
-      return;
+      newErrors.jobType = "Please select a job type.";
     }
 
-    // Salary validation
-    if (form.salaryMin === "" || form.salaryMax === "") {
-      alert("Please enter both minimum and maximum salary.");
-      return;
-    }
-
-    const minSalary = Number(form.salaryMin);
-    const maxSalary = Number(form.salaryMax);
-
-    if (
-      !Number.isFinite(minSalary) ||
-      !Number.isFinite(maxSalary) ||
-      minSalary < 0 ||
-      maxSalary < 0
+    // Minimum salary
+    if (form.salaryMin === "") {
+      newErrors.salaryMin = "Minimum salary is required.";
+    } else if (
+      !Number.isFinite(Number(form.salaryMin)) ||
+      Number(form.salaryMin) < 0
     ) {
-      alert("Salary must be a valid non-negative number.");
-      return;
+      newErrors.salaryMin = "Enter a valid non-negative salary.";
     }
 
-    if (minSalary > maxSalary) {
-      alert("Minimum salary cannot be greater than maximum salary.");
-      return;
+    // Maximum salary
+    if (form.salaryMax === "") {
+      newErrors.salaryMax = "Maximum salary is required.";
+    } else if (
+      !Number.isFinite(Number(form.salaryMax)) ||
+      Number(form.salaryMax) < 0
+    ) {
+      newErrors.salaryMax = "Enter a valid non-negative salary.";
+    } else if (
+      form.salaryMin !== "" &&
+      Number(form.salaryMin) > Number(form.salaryMax)
+    ) {
+      newErrors.salaryMax =
+        "Maximum salary must be at least the minimum salary.";
     }
 
-    // Experience validation
+    // Experience
     if (!String(form.experience).trim()) {
-      alert("Please enter required experience.");
-      return;
+      newErrors.experience = "Experience is required.";
     }
 
-    // Skills validation
+    // Skills
     const skills = form.skills
       .split(",")
       .map((skill) => skill.trim())
       .filter(Boolean);
 
     if (skills.length === 0) {
-      alert("Please enter at least one required skill.");
-      return;
+      newErrors.skills = "Enter at least one required skill.";
     }
 
-    // Vacancies validation
+    // Vacancies
     const vacancies = Number(form.vacancies);
 
     if (
@@ -143,22 +135,23 @@ const PostJob = () => {
       vacancies < 1 ||
       vacancies > 10000
     ) {
-      alert("Vacancies must be a whole number between 1 and 10000.");
-      return;
+      newErrors.vacancies =
+        "Enter a whole number between 1 and 10000.";
     }
 
-    // Deadline validation
+    // Deadline
     if (!form.deadline) {
-      alert("Please select application deadline.");
+      newErrors.deadline = "Application deadline is required.";
+    } else if (form.deadline < minDeadline) {
+      newErrors.deadline = "Deadline cannot be in the past.";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
       return;
     }
 
-    if (form.deadline < minDeadline) {
-      alert("Application deadline cannot be in the past.");
-      return;
-    }
-
-    // Send request to backend
     try {
       setLoading(true);
 
@@ -169,49 +162,56 @@ const PostJob = () => {
         category: form.category.trim(),
         location: form.location.trim(),
         experience: form.experience.trim(),
-        salaryMin: minSalary,
-        salaryMax: maxSalary,
+        salaryMin: Number(form.salaryMin),
+        salaryMax: Number(form.salaryMax),
         vacancies,
         skills,
       };
 
       const response = await API.post("/jobs", payload);
 
-      alert(response.data?.message || "Job posted successfully!");
-
-      navigate("/company-dashboard");
+      navigate("/company-dashboard", {
+        state: {
+          successMessage:
+            response.data?.message || "Job posted successfully.",
+        },
+      });
     } catch (error) {
       console.error("Post job error:", error);
 
-      alert(
-        error.response?.data?.message ||
-          "Failed to post job. Please try again."
-      );
+      setErrors((prev) => ({
+        ...prev,
+        submit:
+          error.response?.data?.message ||
+          "Failed to post job. Please try again.",
+      }));
     } finally {
       setLoading(false);
     }
   };
 
+  const errorMessage = (name) =>
+    errors[name] ? (
+      <div className="text-danger small mt-1" role="alert">
+        {errors[name]}
+      </div>
+    ) : null;
+
   return (
     <div className="container py-4">
       <div className="row justify-content-center">
         <div className="col-lg-9 col-md-11">
-          <div className="card shadow-sm border-0">
-            <div className="card-header bg-primary text-white py-3">
+          <div className="card shadow-sm">
+            <div className="card-header py-3">
               <h3 className="mb-0">Post a Job</h3>
-              <small>
-                Enter the details below to publish a job opportunity.
-              </small>
             </div>
 
             <div className="card-body p-4">
               <form onSubmit={handleSubmit} noValidate>
-                {/* Job Title */}
                 <div className="mb-3">
                   <label htmlFor="title" className="form-label">
                     Job Title *
                   </label>
-
                   <input
                     id="title"
                     name="title"
@@ -222,15 +222,16 @@ const PostJob = () => {
                     onChange={handleChange}
                     maxLength={100}
                     disabled={loading}
+                    aria-invalid={Boolean(errors.title)}
+                    aria-describedby={errors.title ? "title-error" : undefined}
                   />
+                  {errorMessage("title")}
                 </div>
 
-                {/* Description */}
                 <div className="mb-3">
                   <label htmlFor="description" className="form-label">
                     Job Description *
                   </label>
-
                   <textarea
                     id="description"
                     name="description"
@@ -240,19 +241,16 @@ const PostJob = () => {
                     value={form.description}
                     onChange={handleChange}
                     disabled={loading}
+                    aria-invalid={Boolean(errors.description)}
                   />
-                  <small className="text-muted">
-                    Minimum 20 characters.
-                  </small>
+                  {errorMessage("description")}
                 </div>
 
-                {/* Category and Location */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="category" className="form-label">
                       Category *
                     </label>
-
                     <input
                       id="category"
                       name="category"
@@ -262,34 +260,35 @@ const PostJob = () => {
                       value={form.category}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.category)}
                     />
+                    {errorMessage("category")}
                   </div>
 
                   <div className="col-md-6 mb-3">
                     <label htmlFor="location" className="form-label">
                       Location *
                     </label>
-
                     <input
                       id="location"
                       name="location"
                       type="text"
                       className="form-control"
-                      placeholder="e.g. Ahmedabad or Remote"
+                      placeholder="e.g. Ahmedabad"
                       value={form.location}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.location)}
                     />
+                    {errorMessage("location")}
                   </div>
                 </div>
 
-                {/* Job Type and Experience */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="jobType" className="form-label">
                       Job Type *
                     </label>
-
                     <select
                       id="jobType"
                       name="jobType"
@@ -297,6 +296,7 @@ const PostJob = () => {
                       value={form.jobType}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.jobType)}
                     >
                       <option value="">Select job type</option>
                       <option value="Full-time">Full-time</option>
@@ -305,13 +305,13 @@ const PostJob = () => {
                       <option value="Internship">Internship</option>
                       <option value="Remote">Remote</option>
                     </select>
+                    {errorMessage("jobType")}
                   </div>
 
                   <div className="col-md-6 mb-3">
                     <label htmlFor="experience" className="form-label">
                       Required Experience *
                     </label>
-
                     <input
                       id="experience"
                       name="experience"
@@ -321,17 +321,17 @@ const PostJob = () => {
                       value={form.experience}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.experience)}
                     />
+                    {errorMessage("experience")}
                   </div>
                 </div>
 
-                {/* Salary */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="salaryMin" className="form-label">
                       Minimum Salary *
                     </label>
-
                     <input
                       id="salaryMin"
                       name="salaryMin"
@@ -342,14 +342,15 @@ const PostJob = () => {
                       value={form.salaryMin}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.salaryMin)}
                     />
+                    {errorMessage("salaryMin")}
                   </div>
 
                   <div className="col-md-6 mb-3">
                     <label htmlFor="salaryMax" className="form-label">
                       Maximum Salary *
                     </label>
-
                     <input
                       id="salaryMax"
                       name="salaryMax"
@@ -360,16 +361,16 @@ const PostJob = () => {
                       value={form.salaryMax}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.salaryMax)}
                     />
+                    {errorMessage("salaryMax")}
                   </div>
                 </div>
 
-                {/* Skills */}
                 <div className="mb-3">
                   <label htmlFor="skills" className="form-label">
                     Required Skills *
                   </label>
-
                   <input
                     id="skills"
                     name="skills"
@@ -379,20 +380,19 @@ const PostJob = () => {
                     value={form.skills}
                     onChange={handleChange}
                     disabled={loading}
+                    aria-invalid={Boolean(errors.skills)}
                   />
-
                   <small className="text-muted">
                     Separate skills with commas.
                   </small>
+                  {errorMessage("skills")}
                 </div>
 
-                {/* Vacancies and Deadline */}
                 <div className="row">
                   <div className="col-md-6 mb-3">
                     <label htmlFor="vacancies" className="form-label">
                       Number of Vacancies *
                     </label>
-
                     <input
                       id="vacancies"
                       name="vacancies"
@@ -404,14 +404,15 @@ const PostJob = () => {
                       value={form.vacancies}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.vacancies)}
                     />
+                    {errorMessage("vacancies")}
                   </div>
 
                   <div className="col-md-6 mb-3">
                     <label htmlFor="deadline" className="form-label">
                       Application Deadline *
                     </label>
-
                     <input
                       id="deadline"
                       name="deadline"
@@ -421,11 +422,12 @@ const PostJob = () => {
                       value={form.deadline}
                       onChange={handleChange}
                       disabled={loading}
+                      aria-invalid={Boolean(errors.deadline)}
                     />
+                    {errorMessage("deadline")}
                   </div>
                 </div>
 
-                {/* Featured Job */}
                 <div className="form-check mb-4">
                   <input
                     id="isFeatured"
@@ -436,7 +438,6 @@ const PostJob = () => {
                     onChange={handleChange}
                     disabled={loading}
                   />
-
                   <label
                     htmlFor="isFeatured"
                     className="form-check-label"
@@ -445,11 +446,16 @@ const PostJob = () => {
                   </label>
                 </div>
 
-                {/* Submit and Cancel */}
+                {errors.submit && (
+                  <div className="text-danger small mb-3" role="alert">
+                    {errors.submit}
+                  </div>
+                )}
+
                 <div className="d-flex gap-2 flex-wrap">
                   <button
                     type="submit"
-                    className="btn btn-primary d-inline-flex align-items-center justify-content-center gap-2"
+                    className="btn btn-primary d-inline-flex align-items-center gap-2"
                     disabled={loading}
                   >
                     {loading && (
@@ -459,13 +465,12 @@ const PostJob = () => {
                         aria-hidden="true"
                       />
                     )}
-
-                    {loading ? "Posting Job..." : "Post Job"}
+                    {loading ? "Posting..." : "Post Job"}
                   </button>
 
                   <button
                     type="button"
-                    className="btn btn-outline-secondary"
+                    className="btn btn-secondary"
                     disabled={loading}
                     onClick={() => navigate("/company-dashboard")}
                   >
