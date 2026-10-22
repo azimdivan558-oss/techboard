@@ -20,7 +20,7 @@ const sendEmail = async ({ email, subject, message }) => {
     process.env.SMTP_EMAIL ||
     process.env.EMAIL_USER;
 
-  // Brevo API for deployed applications
+  // Brevo API for Render deployment
   if (process.env.BREVO_API_KEY) {
     if (!senderEmail) {
       throw new Error(
@@ -28,8 +28,11 @@ const sendEmail = async ({ email, subject, message }) => {
       );
     }
 
+    let response;
+
+    // Step 1: Send email through Brevo
     try {
-      const response = await axios.post(
+      response = await axios.post(
         "https://api.brevo.com/v3/smtp/email",
         {
           sender: {
@@ -49,18 +52,6 @@ const sendEmail = async ({ email, subject, message }) => {
           timeout: 15000,
         }
       );
-
-      const messageId = response.data?.messageId;
-
-      console.log("BREVO ACCEPTED EMAIL:", {
-        messageId,
-        recipient: email,
-        sender: senderEmail,
-        subject,
-      });
-
-      // Return the real Brevo response to the controller.
-      return response.data;
     } catch (err) {
       const detail =
         err.response?.data?.message ||
@@ -76,19 +67,74 @@ const sendEmail = async ({ email, subject, message }) => {
 
       throw new Error(`Brevo send failed: ${detail}`);
     }
+
+    const messageId = response.data?.messageId;
+
+    console.log("BREVO ACCEPTED EMAIL:", {
+      messageId,
+      recipient: email,
+      sender: senderEmail,
+      subject,
+    });
+
+    // Step 2: Check Brevo delivery events
+    // Tracking failure must not interrupt OTP generation.
+    if (messageId) {
+      try {
+        const tracking = await axios.get(
+          "https://api.brevo.com/v3/smtp/statistics/events",
+          {
+            params: {
+              messageId,
+              days: 7,
+              limit: 20,
+            },
+            headers: {
+              "api-key": process.env.BREVO_API_KEY,
+              accept: "application/json",
+            },
+            timeout: 10000,
+          }
+        );
+
+        console.log(
+          "BREVO DELIVERY EVENTS:",
+          JSON.stringify(
+            tracking.data?.events ?? tracking.data,
+            null,
+            2
+          )
+        );
+      } catch (err) {
+        console.error("BREVO TRACKING ERROR:", {
+          status: err.response?.status,
+          detail: err.response?.data || err.message,
+          messageId,
+        });
+      }
+    } else {
+      console.warn(
+        "Brevo response did not contain a messageId."
+      );
+    }
+
+    return response.data;
   }
 
-  // Do not silently fall back to SMTP on Render.
+  // Do not use SMTP fallback on Render
   if (process.env.RENDER) {
     throw new Error(
       "BREVO_API_KEY is not set on Render; SMTP is unavailable"
     );
   }
 
-  // Gmail SMTP for local development only
-  const user = process.env.SMTP_EMAIL || process.env.EMAIL_USER;
+  // Gmail SMTP for local development
+  const user =
+    process.env.SMTP_EMAIL || process.env.EMAIL_USER;
+
   const pass =
-    process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD;
+    process.env.SMTP_PASSWORD ||
+    process.env.EMAIL_PASSWORD;
 
   if (!user || !pass) {
     throw new Error(
