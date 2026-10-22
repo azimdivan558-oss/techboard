@@ -1,20 +1,8 @@
+
 import nodemailer from "nodemailer";
 import axios from "axios";
 
-/**
- * Sends an e-mail.
- *
- * 1) If BREVO_API_KEY is set -> Brevo HTTPS API (works on Render, where
- *    SMTP ports are blocked on free instances).
- * 2) Otherwise -> Gmail SMTP via nodemailer (works locally).
- *
- * Env:
- *   BREVO_API_KEY, MAIL_FROM          (Render)
- *   SMTP_EMAIL / SMTP_PASSWORD        (local; EMAIL_USER / EMAIL_PASSWORD also accepted)
- */
 const sendEmail = async ({ email, subject, message }) => {
-
-  
   console.log("========== EMAIL CONFIG ==========");
   console.log("RENDER:", Boolean(process.env.RENDER));
   console.log(
@@ -33,17 +21,23 @@ const sendEmail = async ({ email, subject, message }) => {
     process.env.SMTP_EMAIL ||
     process.env.EMAIL_USER;
 
-  // ---------- Brevo (HTTPS) ----------
+  // Brevo HTTPS API - for Render deployment
   if (process.env.BREVO_API_KEY) {
     if (!senderEmail) {
-      throw new Error("MAIL_FROM (or SMTP_EMAIL) is required with BREVO_API_KEY");
+      throw new Error(
+        "MAIL_FROM (or SMTP_EMAIL) is required with BREVO_API_KEY"
+      );
     }
 
     try {
-      await axios.post(
+      // FIX: Capture the API response in a variable
+      const response = await axios.post(
         "https://api.brevo.com/v3/smtp/email",
         {
-          sender: { name: "TechBoard", email: senderEmail },
+          sender: {
+            name: "TechBoard",
+            email: senderEmail,
+          },
           to: [{ email }],
           subject,
           htmlContent: message,
@@ -56,46 +50,71 @@ const sendEmail = async ({ email, subject, message }) => {
           },
           timeout: 15000,
         }
-        
       );
+
       console.log("BREVO ACCEPTED EMAIL:", {
-  messageId: response.data?.messageId,
-  subject,
-});
-      return;
+        messageId: response.data?.messageId,
+        subject,
+      });
+
+      return response.data;
     } catch (err) {
-      const detail = err.response?.data?.message || err.message;
+      const detail =
+        err.response?.data?.message ||
+        err.response?.data?.code ||
+        err.message;
+
+      console.error("BREVO API ERROR:", {
+        status: err.response?.status,
+        detail,
+      });
+
       throw new Error(`Brevo send failed: ${detail}`);
     }
   }
 
-  // ---------- Render par SMTP block hai ----------
+  // Render: do not fall back to SMTP
   if (process.env.RENDER) {
-    throw new Error("BREVO_API_KEY is not set on Render; SMTP is blocked there");
+    throw new Error(
+      "BREVO_API_KEY is not set on Render; SMTP is unavailable"
+    );
   }
 
-  // ---------- Gmail SMTP (local) ----------
+  // Gmail SMTP - for local development
   const user = process.env.SMTP_EMAIL || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD;
+  const pass =
+    process.env.SMTP_PASSWORD || process.env.EMAIL_PASSWORD;
 
   if (!user || !pass) {
-    throw new Error("Email is not configured (SMTP_EMAIL / SMTP_PASSWORD missing)");
+    throw new Error(
+      "Email is not configured (SMTP_EMAIL / SMTP_PASSWORD missing)"
+    );
   }
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
-    auth: { user, pass },
+    auth: {
+      user,
+      pass,
+    },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
   });
 
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `"TechBoard" <${user}>`,
     to: email,
     subject,
     html: message,
   });
+
+  console.log("GMAIL SMTP ACCEPTED EMAIL:", {
+    messageId: info.messageId,
+    subject,
+  });
+
+  return info;
 };
 
 export default sendEmail;
