@@ -109,10 +109,16 @@ const sendEmail = async ({ email, subject, message }) => {
     html: message,
   });
 
-  console.log("GMAIL SMTP ACCEPTED EMAIL:", {
-    messageId: info.messageId,
-    subject,
-  });
+  console.log(
+  "BREVO API RESPONSE:",
+  JSON.stringify(response.data)
+);
+
+console.log("BREVO REQUEST DETAILS:", {
+  messageId: response.data?.messageId,
+  recipient: email,
+  subject,
+});
 
   return info;
 };
