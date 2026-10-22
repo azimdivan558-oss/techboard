@@ -56,7 +56,12 @@ const sendEmail = async ({ email, subject, message }) => {
           },
           timeout: 15000,
         }
+        
       );
+      console.log("BREVO ACCEPTED EMAIL:", {
+  messageId: response.data?.messageId,
+  subject,
+});
       return;
     } catch (err) {
       const detail = err.response?.data?.message || err.message;
