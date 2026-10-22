@@ -84,11 +84,11 @@ const sendEmail = async ({ email, subject, message }) => {
         const tracking = await axios.get(
           "https://api.brevo.com/v3/smtp/statistics/events",
           {
-            params: {
-              messageId,
-              days: 7,
-              limit: 20,
-            },
+           params: {
+  email,
+  days: 7,
+  limit: 20,
+},
             headers: {
               "api-key": process.env.BREVO_API_KEY,
               accept: "application/json",
