@@ -195,15 +195,11 @@ const PostJob = () => {
     aria-invalid={Boolean(errors.category)}
   >
     <option value="">Select job category</option>
-    <option value="IT & Software">IT & Software</option>
-    <option value="Web Development">Web Development</option>
+    <option value="Software Development">Software Development</option>
     <option value="Data Science">Data Science</option>
-    <option value="Marketing">Marketing</option>
-    <option value="Finance">Finance</option>
-    <option value="Human Resources">Human Resources</option>
-    <option value="Sales">Sales</option>
     <option value="Design">Design</option>
-    <option value="Other">Other</option>
+    <option value="Marketing">Marketing</option>
+    <option value="Cyber Security">Cyber Security</option>
   </select>
 
   {errorMessage("category")}
