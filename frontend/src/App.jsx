@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Cursor3D from "./components/Cursor3D";
 
 /* ---------- Public pages ---------- */
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -52,6 +53,8 @@ function PageLoader() {
 
 function App() {
   return (
+   <>
+     <Cursor3D />
     <div className="app-shell">
       <Navbar />
 
@@ -112,6 +115,8 @@ function App() {
         <Footer />
       </div>
     </div>
+
+    </>
   );
 }
 

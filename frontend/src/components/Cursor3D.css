@@ -1,0 +1,101 @@
+.c3-root {
+  --c3: #2f6bff;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.c3-root.c3-visible { opacity: 1; }
+.c3-root.c3-hide { opacity: 0; transition-duration: 0.12s; }
+
+/* Custom cursor everywhere except interactive elements */
+html.c3-on,
+html.c3-on * { cursor: none !important; }
+
+/* On links, buttons and similar: the 3D cursor hides, the normal hand shows */
+html.c3-on a,
+html.c3-on a *,
+html.c3-on button,
+html.c3-on button *,
+html.c3-on [role="button"],
+html.c3-on [role="button"] *,
+html.c3-on summary,
+html.c3-on select,
+html.c3-on label[for],
+html.c3-on [data-cursor="hide"],
+html.c3-on [data-cursor="hide"] * { cursor: pointer !important; }
+
+/* On text fields: the 3D cursor hides, the text cursor shows */
+html.c3-on input,
+html.c3-on textarea,
+html.c3-on [contenteditable],
+html.c3-on [contenteditable] * { cursor: text !important; }
+
+.c3-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  perspective: 360px;
+}
+
+.c3-shadow {
+  position: absolute;
+  left: -14px;
+  top: 30px;
+  width: 28px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.28), transparent 70%);
+}
+
+.c3-cube {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+.c3-outer { --z: 17px; width: 34px; height: 34px; left: -17px; top: -17px; }
+.c3-inner { --z: 7px; width: 14px; height: 14px; left: -7px; top: -7px; }
+
+.c3-face { position: absolute; inset: 0; }
+.c3-face:nth-child(1) { transform: translateZ(var(--z)); }
+.c3-face:nth-child(2) { transform: rotateY(180deg) translateZ(var(--z)); }
+.c3-face:nth-child(3) { transform: rotateY(90deg) translateZ(var(--z)); }
+.c3-face:nth-child(4) { transform: rotateY(-90deg) translateZ(var(--z)); }
+.c3-face:nth-child(5) { transform: rotateX(90deg) translateZ(var(--z)); }
+.c3-face:nth-child(6) { transform: rotateX(-90deg) translateZ(var(--z)); }
+
+/* Outer cube: glass-like frame */
+.c3-outer .c3-face {
+  border: 1px solid color-mix(in srgb, var(--c3) 75%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--c3) 16%, transparent),
+    color-mix(in srgb, var(--c3) 3%, transparent)
+  );
+}
+
+/* Inner cube: solid core, each face lit differently for depth */
+.c3-inner .c3-face { background: var(--c3); }
+.c3-inner .c3-face:nth-child(1) { opacity: 0.95; }
+.c3-inner .c3-face:nth-child(2) { opacity: 0.55; }
+.c3-inner .c3-face:nth-child(3) { opacity: 0.8; }
+.c3-inner .c3-face:nth-child(4) { opacity: 0.6; }
+.c3-inner .c3-face:nth-child(5) { opacity: 1; }
+.c3-inner .c3-face:nth-child(6) { opacity: 0.45; }
+
+.c3-dot {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--c3);
+}
